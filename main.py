@@ -83,7 +83,7 @@ def select_work(work_id):
                 }
 
         else:#выводим основное инфо
-            work['end_time']="в процессе"
+            work['end_time']="В процессе"
         return work, 200
     else:
         abort(404)
@@ -122,6 +122,69 @@ def select_works():
         return works, 200
     else:
         abort(404)
+
+
+@app.route('/agro_tracker/start_form/', methods=['GET'])
+def select_start_form():
+    start_form={}#информация о типах обработки, технике, культурах, полях
+    # добавляем типы обработки
+    cursor.execute(f"select id,name from work_types order by id asc;")
+    record = cursor.fetchall()
+    worktypes=[]
+    if (cursor.rowcount > 1):
+        for i in range(cursor.rowcount):
+            worktype = {
+                    "worktype_id": record[i][0],
+                    "worktype_name": record[i][1]
+                }
+            worktypes.append(worktype)
+        start_form["worktypes"] = worktypes
+    else:
+        abort(404)
+    # добавляем поля
+    cursor.execute(f"select id,name from fields order by id asc;")
+    record = cursor.fetchall()
+    fields = []
+    if (cursor.rowcount > 1):
+        for i in range(cursor.rowcount):
+            field = {
+                "field_id": record[i][0],
+                "field_name": record[i][1]
+            }
+            fields.append(field)
+        start_form["fields"] = fields
+    else:
+        abort(404)
+    # добавляем технику
+    cursor.execute(f"select id,name from technics  order by id asc;")
+    record = cursor.fetchall()
+    technics = []
+    if (cursor.rowcount > 1):
+        for i in range(cursor.rowcount):
+            technic = {
+                "technic_id": record[i][0],
+                "technic_name": record[i][1]
+            }
+            technics.append(technic)
+        start_form["technics"] = technics
+    else:
+        abort(404)
+    # добавляем культуры
+    cursor.execute(f"select id,name from cultures where id>0 order by id asc;")
+    record = cursor.fetchall()
+    cultures = []
+    if (cursor.rowcount > 1):
+        for i in range(cursor.rowcount):
+            culture = {
+                "culture_id": record[i][0],
+                "culture_name": record[i][1]
+            }
+            cultures.append(culture)
+        start_form["cultures"] = cultures
+    else:
+        abort(404)
+    return start_form, 200
+
 
 @app.route('/agro_tracker/users', methods=['GET'])
 def select_user():
