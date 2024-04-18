@@ -84,6 +84,20 @@ def select_work(work_id):
 
         else:#выводим основное инфо
             work['end_time']="В процессе"
+        cursor.execute(f"select latitude,longitude,point_time from points where work_id={work_id};")
+        record0 = cursor.fetchall()
+        points = []
+        if (cursor.rowcount > 0):
+            for i in range(cursor.rowcount):
+                json_point_time = json.dumps(record0[i][2], default=serialize_datetime)
+                point = {
+                    "latitude": record0[i][0],
+                    "longitude": record0[i][1],
+                    "point_time": json_point_time
+                }
+                points.append(point)
+                # print(record[i][0], record[i][1], record[i][2])
+        work['points']=points
         return work, 200
     else:
         abort(404)
@@ -269,6 +283,24 @@ def insert_work_parameter_values():
     }
     return params, 201
 
+# @app.route('/agro_tracker/points/<int:work_id>', methods=['GET'])
+# def select_points(work_id):
+#     cursor.execute(f"select latitude,longitude,point_time from points where work_id={work_id};")
+#     record = cursor.fetchall()
+#     points=[]
+#     if (cursor.rowcount > 0):
+#         for i in range(cursor.rowcount):
+#             json_point_time = json.dumps(record[i][2], default=serialize_datetime)
+#             point = {
+#                     "latitude": record[i][0],
+#                     "longitude": record[i][1],
+#                     "point_time": json_point_time
+#                 }
+#             points.append(point)
+#             print(record[i][0],record[i][1],record[i][2])
+#         return points, 200
+#     else:
+#         abort(404)
 
 
 if __name__ == '__main__':
