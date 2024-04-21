@@ -84,7 +84,7 @@ def select_work(work_id):
 
         else:#выводим основное инфо
             work['end_time']="В процессе"
-        cursor.execute(f"select latitude,longitude,point_time from points where work_id={work_id};")
+        cursor.execute(f"select latitude,longitude,point_time,id from points where work_id={work_id};")
         record0 = cursor.fetchall()
         points = []
         if (cursor.rowcount > 0):
@@ -93,7 +93,8 @@ def select_work(work_id):
                 point = {
                     "latitude": record0[i][0],
                     "longitude": record0[i][1],
-                    "point_time": json_point_time
+                    "point_time": json_point_time,
+                    "id": record0[i][3],
                 }
                 points.append(point)
                 # print(record[i][0], record[i][1], record[i][2])
@@ -283,24 +284,25 @@ def insert_work_parameter_values():
     }
     return params, 201
 
-# @app.route('/agro_tracker/points/<int:work_id>', methods=['GET'])
-# def select_points(work_id):
-#     cursor.execute(f"select latitude,longitude,point_time from points where work_id={work_id};")
-#     record = cursor.fetchall()
-#     points=[]
-#     if (cursor.rowcount > 0):
-#         for i in range(cursor.rowcount):
-#             json_point_time = json.dumps(record[i][2], default=serialize_datetime)
-#             point = {
-#                     "latitude": record[i][0],
-#                     "longitude": record[i][1],
-#                     "point_time": json_point_time
-#                 }
-#             points.append(point)
-#             print(record[i][0],record[i][1],record[i][2])
-#         return points, 200
-#     else:
-#         abort(404)
+@app.route('/agro_tracker/points/insert', methods=['POST'])
+def insert_point():
+    if not request.json or not 'lat' in request.json or not 'lon' in request.json or not 'work_id' in request.json or not 'point_time' in request.json:
+        abort(400)
+
+    lat=request.json['lat']
+    lon=request.json['lon']
+    work_id=request.json['work_id']
+    point_time=request.json['point_time']
+    point = {
+        "work_id": work_id,
+        "lat": lat,
+        "lon": lon,
+        "point_time": point_time
+    }
+    cursor.execute(
+        f"insert into points(latitude,longitude,work_id,point_time) values({lat},{lon},{work_id},'{point_time}');")
+    connection.commit()
+    return point, 201
 
 
 if __name__ == '__main__':
