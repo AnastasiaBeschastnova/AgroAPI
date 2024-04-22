@@ -38,6 +38,8 @@ def select_work(work_id):
     record = cursor.fetchall()
     json_start_time = json.dumps(record[0][7], default=serialize_datetime)
     json_end_time = json.dumps(record[0][8], default=serialize_datetime)
+    field_name=record[0][3]
+    # cursor.execute(f"select area from fields where name='{}';")
     work = {
         "work_id": record[0][0],
         "technic_name": record[0][1],
@@ -49,6 +51,9 @@ def select_work(work_id):
         "start_time": json_start_time,
         "end_time": json_end_time
     }
+    # cursor.execute(f"select area from fields where name='{field_name}';")
+    # if(cursor.rowcount>0):
+    #     work['field_area'] = cursor.fetchall()
     if (cursor.rowcount == 1):
         if (record[0][8] != None):  # если время окончания работы не пустое, вывод доп.инфо
             cursor.execute(f"select parameters.id,parameters.name, work_parameter_values.value from works, work_types, work_parameter_values, parameters where works.work_type_id = work_types.id and work_parameter_values.work_id = works.id and parameters.id = work_parameter_values.parameter_id and works.id = {work_id}")
@@ -97,8 +102,24 @@ def select_work(work_id):
                     "id": record0[i][3],
                 }
                 points.append(point)
-                # print(record[i][0], record[i][1], record[i][2])
         work['points']=points
+        cursor.execute(f"select area from fields where name='{field_name}';")
+        record1=cursor.fetchall()
+        if (cursor.rowcount > 0):
+            area=str(record1[0])
+            field_points=area.split('),(')
+            field_points[0]=field_points[0].split('(\'((')[1]
+            field_points[len(field_points)-1] = field_points[len(field_points)-1].split('))\',')[0]
+            field_area = []
+            for i in range(len(field_points)):
+                lat,lon=field_points[i].split(',')
+                point=[]
+                point.append(lat)
+                point.append(lon)
+                field_area.append(point)
+            work['field_area'] = field_area
+        else:
+            work['field_area'] = None
         return work, 200
     else:
         abort(404)
