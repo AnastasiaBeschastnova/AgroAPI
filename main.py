@@ -1,10 +1,14 @@
 from flask import Flask, abort, request, jsonify
 import json
 from datetime import datetime
+import hashlib
 
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+def hash_password(p):#взятие хеш-кода от пароля
+    return hashlib.sha256(p.encode()).hexdigest()
 
 
 def serialize_datetime(obj):# функция нужна для вывода datetime в формате json
@@ -225,7 +229,7 @@ def select_start_form():
 @app.route('/agro_tracker/users', methods=['GET'])
 def select_user():
     login = request.args.get('login')
-    password = request.args.get('password')
+    password = hash_password(request.args.get('password'))# в базе хранится хеш от пароля, поэтому для сравнения от введенного пароля берется хеш
     cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id where login='{login}' and password='{password}'")
     record = cursor.fetchall()
     if (cursor.rowcount == 1):
@@ -327,5 +331,9 @@ def insert_point():
 
 
 if __name__ == '__main__':
-    app.run(host="192.168.0.104",debug=True)
+    app.run(host="192.168.0.100",debug=True)
+    # app.run(host="127.0.0.1", debug=True)
+#
+    # app.run(host="178.155.125.245",debug=True)
+
 
