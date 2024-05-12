@@ -1,7 +1,7 @@
 from flask import Flask, abort, request, jsonify
 import json
 from datetime import datetime
-import hashlib
+import hashlib, secrets
 
 import psycopg2
 from psycopg2 import Error
@@ -9,6 +9,9 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 def hash_password(p):#взятие хеш-кода от пароля
     return hashlib.sha256(p.encode()).hexdigest()
+
+def generate_user_key():#генерируется ключ при входе пользователя в аккаунт, длина 32 символа
+    return secrets.token_hex(16)
 
 
 def serialize_datetime(obj):# функция нужна для вывода datetime в формате json
@@ -330,10 +333,22 @@ def insert_point():
     return point, 201
 
 
+@app.route('/agro_tracker/users/user_key', methods=['POST'])
+def insert_user_key():
+    if not request.json or not 'user_id' in request.json:
+        abort(400)
+    user_id=request.json['user_id']
+    key=generate_user_key()
+    user_key={
+        "user_id": user_id,
+        "key": key
+    }
+    cursor.execute(f"insert into user_keys(user_id, key) values({user_id}, '{key}')")
+    connection.commit()
+    return user_key, 201
+
+
 if __name__ == '__main__':
     app.run(host="192.168.0.100",debug=True)
-    # app.run(host="127.0.0.1", debug=True)
-#
-    # app.run(host="178.155.125.245",debug=True)
 
 
