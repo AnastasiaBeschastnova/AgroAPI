@@ -254,6 +254,25 @@ def select_user():
         abort(404)
 
 
+@app.route('/agro_tracker/user_info', methods=['GET'])
+def select_user_info():
+    token = request.args.get('token')
+    cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id left join user_keys on users.id=user_keys.user_id where user_keys.key='{token}'")
+    record = cursor.fetchall()
+    if (cursor.rowcount == 1):
+        user = {
+                "id": record[0][0],
+                "name": record[0][1],
+                "role": record[0][2],
+                "login": record[0][3],
+                "password": record[0][4],
+                "token": token
+            }
+        return user, 200
+    else:
+        abort(404)
+
+
 @app.route('/agro_tracker/works/insert', methods=['POST'])
 def insert_work():
     if not request.json or not 'name' in request.json or not 'culture_id' in request.json or not 'technic_id' in request.json or not 'field_id' in request.json or not 'work_type_id' in request.json or not 'creator_id' in request.json or not 'start_time' in request.json:
