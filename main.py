@@ -46,7 +46,6 @@ def select_work(work_id):
     json_start_time = json.dumps(record[0][7], default=serialize_datetime)
     json_end_time = json.dumps(record[0][8], default=serialize_datetime)
     field_name=record[0][3]
-    # cursor.execute(f"select area from fields where name='{}';")
     work = {
         "work_id": record[0][0],
         "technic_name": record[0][1],
@@ -58,9 +57,6 @@ def select_work(work_id):
         "start_time": json_start_time,
         "end_time": json_end_time
     }
-    # cursor.execute(f"select area from fields where name='{field_name}';")
-    # if(cursor.rowcount>0):
-    #     work['field_area'] = cursor.fetchall()
     if (cursor.rowcount == 1):
         if (record[0][8] != None):  # если время окончания работы не пустое, вывод доп.инфо
             cursor.execute(f"select parameters.id,parameters.name, work_parameter_values.value from works, work_types, work_parameter_values, parameters where works.work_type_id = work_types.id and work_parameter_values.work_id = works.id and parameters.id = work_parameter_values.parameter_id and works.id = {work_id}")
@@ -137,8 +133,8 @@ def select_work_id(creator_id,start_time):
     # выводим основную информацию по работе, содержающуюся в таблице works
     cursor.execute(f"select id from works where start_time='{start_time}' and creator_id={creator_id}")
     record = cursor.fetchall()
-    work_id={"work_id":record[0][0]}
-    if(cursor.rowcount==1):
+    if(cursor.rowcount>=1):
+        work_id={"work_id": record[0][0]}
         return work_id, 200
     else:
         abort(404)
@@ -259,7 +255,7 @@ def select_user_info():
     token = request.args.get('token')
     cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id left join user_keys on users.id=user_keys.user_id where user_keys.key='{token}'")
     record = cursor.fetchall()
-    if (cursor.rowcount == 1):
+    if (cursor.rowcount == 1 and  len(record)==1):
         user = {
                 "id": record[0][0],
                 "name": record[0][1],
@@ -358,22 +354,47 @@ def insert_point():
     return point, 201
 
 
-# @app.route('/agro_tracker/users/user_key', methods=['POST'])
-# def insert_user_key():
-#     if not request.json or not 'user_id' in request.json:
-#         abort(400)
-#     user_id=request.json['user_id']
-#     key=generate_user_key()
-#     user_key={
-#         "user_id": user_id,
-#         "key": key
-#     }
-#     cursor.execute(f"insert into user_keys(user_id, key) values({user_id}, '{key}')")
-#     connection.commit()
-#     return user_key, 201
 
+@app.route('/agro_tracker/works/operator/', methods=['GET'])
+def select_operator_works():
+    # проверяем наличие у оператора запущенных работ
+    creator_id=request.args.get('creator_id')
+    cursor.execute(f"select id, name, start_time, work_type_id from works where creator_id='{creator_id}' and end_time is null;")
+    record = cursor.fetchall()
+    if (cursor.rowcount >= 1 and len(record)>=1):
+        work = {
+            "work_id": record[0][0],
+            "name": record[0][1],
+            "start_time": str(record[0][2]),
+            "work_type_id": record[0][3],
+            "comment": "ContinueWorkFragment"
+        }
+        return work, 200 #возвращается одна из списка незавершенных работ
+    else:
+        # если не найдено незавершенных работ, проверить, есть ли работы, у которых не отправлены параметры по окончании
+        cursor.execute(
+            f"select id, name, start_time, work_type_id from works where creator_id='{creator_id}' and not exists (select * from work_parameter_values where work_parameter_values.work_id=works.id);")
+        record0 = cursor.fetchall()
+        if (cursor.rowcount >= 1 and len(record0)>=1):
+            work = {
+                "work_id": record0[0][0],
+                "name": record0[0][1],
+                "start_time": str(record0[0][2]),
+                "work_type_id": record0[0][3],
+                "comment": "EndWorkFormFragment"
+            }
+            return work, 200#возвращается одна из списка работ без отправленных по окончании выполнения параметров
+        else:
+            work = {
+                "work_id": 0,
+                "name": "name",
+                "start_time":"start_time",
+                "comment": "StartWorkFormFragment"
+            }
+            #если нет незавершенных работ, дать доступ к созданию новой работы
+            return work, 200
 
 if __name__ == '__main__':
-    app.run(host="192.168.0.100",debug=True)
+    app.run(host="192.168.0.103",debug=True)
 
 
