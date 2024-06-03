@@ -231,21 +231,22 @@ def select_user():
     password = hash_password(request.args.get('password'))# в базе хранится хеш от пароля, поэтому для сравнения от введенного пароля берется хеш
     cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id where login='{login}' and password='{password}'")
     record = cursor.fetchall()
-    #генерация и запись токена
-    user_id=record[0][0]
-    token = generate_user_key()
-    if (cursor.rowcount == 1):
-        user = {
-                "id": record[0][0],
-                "name": record[0][1],
-                "role": record[0][2],
-                "login": record[0][3],
-                "password": record[0][4],
-                "token": token
-            }
-        cursor.execute(f"insert into user_keys(user_id, key) values({user_id}, '{token}')")
-        connection.commit()
-        return user, 200
+    if(cursor.rowcount==1):
+        #генерация и запись токена
+        user_id=record[0][0]
+        token = generate_user_key()
+        if (cursor.rowcount == 1):
+            user = {
+                    "id": record[0][0],
+                    "name": record[0][1],
+                    "role": record[0][2],
+                    "login": record[0][3],
+                    "password": record[0][4],
+                    "token": token
+                }
+            cursor.execute(f"insert into user_keys(user_id, key) values({user_id}, '{token}')")
+            connection.commit()
+            return user, 200
     else:
         abort(404)
 
@@ -395,6 +396,6 @@ def select_operator_works():
             return work, 200
 
 if __name__ == '__main__':
-    app.run(host="192.168.0.103",debug=True)
+    app.run(host="192.168.0.105",debug=True)
 
 
