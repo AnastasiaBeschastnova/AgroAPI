@@ -1,4 +1,4 @@
-from flask import Flask, abort, request, jsonify
+from flask import Flask, abort, request
 import json
 from datetime import datetime
 import hashlib, secrets
@@ -40,12 +40,13 @@ app = Flask(__name__)
 
 @app.route('/agro_tracker/works/<int:work_id>', methods=['GET'])
 def select_work(work_id):
-    # выводим основную информацию по работе, содержающуюся в таблице works
+    # вывод основной информации о полевой работе, которая содержится в таблице works
     cursor.execute(f"select works.id,technics.name, cultures.name, fields.name, work_types.name,users.name,works.name, start_time, end_time from works, technics, cultures, fields, users, work_types where works.technic_id = technics.id and works.culture_id = cultures.id and works.field_id = fields.id and works.work_type_id = work_types.id and works.creator_id = users.id and works.id = {work_id}")
     record = cursor.fetchall()
+    # необходимо перевести формат datetime в пригодный для json
     json_start_time = json.dumps(record[0][7], default=serialize_datetime)
     json_end_time = json.dumps(record[0][8], default=serialize_datetime)
-    field_name=record[0][3]
+    field_name = record[0][3]
     work = {
         "work_id": record[0][0],
         "technic_name": record[0][1],
@@ -57,11 +58,11 @@ def select_work(work_id):
         "start_time": json_start_time,
         "end_time": json_end_time
     }
-    if (cursor.rowcount == 1):
-        if (record[0][8] != None):  # если время окончания работы не пустое, вывод доп.инфо
+    if (cursor.rowcount == 1): # если информация по такой работе имеется
+        if (record[0][8] != None):  # если время окончания работы не пустое, вывод дополнительной информации
             cursor.execute(f"select parameters.id,parameters.name, work_parameter_values.value from works, work_types, work_parameter_values, parameters where works.work_type_id = work_types.id and work_parameter_values.work_id = works.id and parameters.id = work_parameter_values.parameter_id and works.id = {work_id}")
             record0 = cursor.fetchall()
-            if(cursor.rowcount==1):
+            if(cursor.rowcount==1):# если дополнительный параметр один, вывод информации только о топливе
                 work = {
                     "work_id": record[0][0],
                     "technic_name": record[0][1],
@@ -74,7 +75,7 @@ def select_work(work_id):
                     "end_time": json_end_time,
                     "fuel": record0[0][2]
                 }
-            elif(cursor.rowcount==2):
+            elif(cursor.rowcount==2):# если дополнительных параметров два, вывод информации о топливе и втором параметре
                 work = {
                     "work_id": record[0][0],
                     "technic_name": record[0][1],
@@ -90,8 +91,9 @@ def select_work(work_id):
                     "second_parameter_value": record0[1][2]
                 }
 
-        else:#выводим основное инфо
+        else:#выводим основное инфо, если время окончания работы пустое => работа еще не завершена
             work['end_time']="В процессе"
+        # вывод точек маршрута сельскохозяйственной техники, который был проделан в ходе выполнения данной полевой работы
         cursor.execute(f"select latitude,longitude,point_time,id from points where work_id={work_id};")
         record0 = cursor.fetchall()
         points = []
@@ -106,6 +108,7 @@ def select_work(work_id):
                 }
                 points.append(point)
         work['points']=points
+        # вывод границ поля, на котором выполнялась полевая работа
         cursor.execute(f"select area from fields where name='{field_name}';")
         record1=cursor.fetchall()
         if (cursor.rowcount > 0):
@@ -130,7 +133,7 @@ def select_work(work_id):
 
 @app.route('/agro_tracker/works/<int:creator_id>&<string:start_time>', methods=['GET'])
 def select_work_id(creator_id,start_time):
-    # выводим основную информацию по работе, содержающуюся в таблице works
+    # вывод ID только что созданной оператором полевой работы
     cursor.execute(f"select id from works where start_time='{start_time}' and creator_id={creator_id}")
     record = cursor.fetchall()
     if(cursor.rowcount>=1):
@@ -142,6 +145,7 @@ def select_work_id(creator_id,start_time):
 
 @app.route('/agro_tracker/works/', methods=['GET'])
 def select_works():
+    # вывод списка всех полевых работ, имеющихся в базе данных
     cursor.execute(f"select works.id,fields.name, start_time, work_types.name, end_time,technics.name from works, technics,fields,work_types where works.technic_id=technics.id  and works.field_id=fields.id and works.work_type_id=work_types.id order by works.end_time desc;")
     record = cursor.fetchall()
     works=[]
@@ -165,6 +169,7 @@ def select_works():
 
 @app.route('/agro_tracker/start_form/', methods=['GET'])
 def select_start_form():
+    # вывод списков параметров полевых работ для создания новой полевой работы
     start_form={}#информация о типах обработки, технике, культурах, полях
     # добавляем типы обработки
     cursor.execute(f"select id,name from work_types order by id asc;")
@@ -227,11 +232,12 @@ def select_start_form():
 
 @app.route('/agro_tracker/users', methods=['GET'])
 def select_user():
+    # проверка существования пользователя с такой парой логин-пароль
     login = request.args.get('login')
     password = hash_password(request.args.get('password'))# в базе хранится хеш от пароля, поэтому для сравнения от введенного пароля берется хеш
     cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id where login='{login}' and password='{password}'")
     record = cursor.fetchall()
-    if(cursor.rowcount==1):
+    if(cursor.rowcount==1):# если пользователь найден, для него генерируется токен
         #генерация и запись токена
         user_id=record[0][0]
         token = generate_user_key()
@@ -253,6 +259,7 @@ def select_user():
 
 @app.route('/agro_tracker/user_info', methods=['GET'])
 def select_user_info():
+    # вывод информации об авторизованном пользователе
     token = request.args.get('token')
     cursor.execute(f"SELECT users.id,users.name,roles.name as role, login,password from users left join roles on roles.id=role_id left join user_keys on users.id=user_keys.user_id where user_keys.key='{token}'")
     record = cursor.fetchall()
@@ -272,6 +279,7 @@ def select_user_info():
 
 @app.route('/agro_tracker/works/insert', methods=['POST'])
 def insert_work():
+    # добавление в базу данных новой полевой работы
     if not request.json or not 'name' in request.json or not 'culture_id' in request.json or not 'technic_id' in request.json or not 'field_id' in request.json or not 'work_type_id' in request.json or not 'creator_id' in request.json or not 'start_time' in request.json:
         abort(400)
     culture_id=request.json['culture_id']
@@ -296,6 +304,7 @@ def insert_work():
 
 @app.route('/agro_tracker/works/update', methods=['POST'])
 def update_work():
+    # обновление существующей в базе данных полевой работы: добавление времени окончания ее выполнения
     if not request.json or not 'work_id' in request.json or not 'end_time' in request.json:
         abort(400)
     work_id=request.json['work_id']
@@ -310,12 +319,13 @@ def update_work():
 
 @app.route('/agro_tracker/work_parameter_values/', methods=['POST'])
 def insert_work_parameter_values():
+    # отправка в базу данных параметров полевой работы, которые вводятся по окончании ее выполнения
     if not request.json or not 'work_id' in request.json or not 'fuel' in request.json or not 'second_parameter_value' in request.json:
         abort(400)
     # получаем по типу выполненной работы параметры, которые нужно передать
     work_id=request.json['work_id']
-    fuel=request.json['fuel']
-    second_parameter_value=request.json['second_parameter_value']
+    fuel=request.json['fuel']# топливо - всегда передается, для любого вида обработки поля
+    second_parameter_value=request.json['second_parameter_value']# второй параметр может отсутствовать, название разное для разных типов обработки поля
     cursor.execute(f"select parameter_id,parameters.name from work_type_parameters left join parameters on parameters.id=parameter_id where work_type_id=(select work_type_id from works where id={work_id})")
     record = cursor.fetchall()
     parameters_count=cursor.rowcount
@@ -323,7 +333,7 @@ def insert_work_parameter_values():
     # топливо вносится всегда
     cursor.execute(f"insert into work_parameter_values(work_id, parameter_id, value) values({work_id}, {record[0][0]}, {fuel})")
     connection.commit()
-    # 2й параметр вносится для всех типов, кроме обычной обработки
+    # второй параметр вносится для всех типов, кроме обычной обработки
     if (parameters_count == 2):
         cursor.execute(f"insert into work_parameter_values(work_id, parameter_id, value) values({work_id}, {record[1][0]}, {second_parameter_value})")
         connection.commit()
@@ -336,9 +346,9 @@ def insert_work_parameter_values():
 
 @app.route('/agro_tracker/points/insert', methods=['POST'])
 def insert_point():
+    # добавление в базу данных точки маршрутка сельскохозяйственной техники
     if not request.json or not 'lat' in request.json or not 'lon' in request.json or not 'work_id' in request.json or not 'point_time' in request.json:
         abort(400)
-
     lat=request.json['lat']
     lon=request.json['lon']
     work_id=request.json['work_id']
@@ -358,7 +368,7 @@ def insert_point():
 
 @app.route('/agro_tracker/works/operator/', methods=['GET'])
 def select_operator_works():
-    # проверяем наличие у оператора запущенных работ
+    # проверка наличия у оператора запущенных (незавершенных) полевых работ
     creator_id=request.args.get('creator_id')
     cursor.execute(f"select id, name, start_time, work_type_id from works where creator_id='{creator_id}' and end_time is null;")
     record = cursor.fetchall()
@@ -372,7 +382,7 @@ def select_operator_works():
         }
         return work, 200 #возвращается одна из списка незавершенных работ
     else:
-        # если не найдено незавершенных работ, проверить, есть ли работы, у которых не отправлены параметры по окончании
+        # если не найдено незавершенных работ, проверить, есть ли работы, у которых не отправлены параметры по окончании выполнения работы
         cursor.execute(
             f"select id, name, start_time, work_type_id from works where creator_id='{creator_id}' and not exists (select * from work_parameter_values where work_parameter_values.work_id=works.id);")
         record0 = cursor.fetchall()
@@ -392,7 +402,7 @@ def select_operator_works():
                 "start_time":"start_time",
                 "comment": "StartWorkFormFragment"
             }
-            #если нет незавершенных работ, дать доступ к созданию новой работы
+            #если нет незавершенных работ, дать доступ к созданию новой полевой работы
             return work, 200
 
 if __name__ == '__main__':
